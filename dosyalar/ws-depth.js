@@ -14,6 +14,7 @@ class WsDepth {
         this.orderBookCount = 20
         this.subSayac = 0
         this.wsUrl = 'wss://ws.coinexchange3.com:3001/marketdata'
+        this.wsler = []
     }
 
     async GetMarkets(){
@@ -46,121 +47,9 @@ class WsDepth {
         this.ortak.depths = umFilter.map(x=> ({ tradePairId: x['TradePairId'], market: x['Label']}))
     }
 
-    async OrderBookInsert(data, callback){
-        const depths = this.ortak.depths.find(e=> e.tradePairId == data.TradePairId) //await this.ortak.depths.findOne({ 'tradePairId': data['TradePairId'] })
-        if(!depths || !depths.depths.asks || !depths.depths.bids) return
-        
-        if(data['Type'] == 1 && depths.depths.asks.length > 9 && data.Rate > depths.depths.asks[9].rate) return 
-        if(data['Type'] == 0 && depths.depths.bids.length > 9 && data.Rate < depths.depths.bids[9].rate) return 
-
-        let bids = [], asks = [], yeniMix, newDepths
-        
-        if(depths['depths']['bids'].length > 0)
-            bids = depths['depths']['bids']
-
-        if(depths['depths']['asks'].length > 0)
-            asks = depths['depths']['asks']
-
-        const mix = bids.concat(asks)
-        if(data['Action'] == 0) // add
-            yeniMix = this.OrderEkle(data, mix)
-        
-        if(data['Action'] == 3) // sil (iptal)
-            yeniMix = this.OrderSil(data, mix)
-
-        if(data['Action'] == 1) // sil (işlem yapıldı buy yada sell)
-            yeniMix = this.OrderSil(data, mix)
-
-
-        //asks = list(filter(lambda x: x['type'] == 'asks', mix))
-        asks = yeniMix.filter(e=> e['type'] == 'asks')
-        asks.sort((a,b)=> a.rate - b.rate)
-        asks = asks.slice(0, this.orderBookCount)
-        //asks.sort()
-        //asks = sorted(asks, key=lambda x: x['rate'])
-
-        //bids = list(filter(lambda x: x['type'] == 'bids', mix))
-        bids = yeniMix.filter(e=> e['type'] == 'bids')
-        bids.sort((a,b)=> b.rate - a.rate)
-        bids = bids.slice(0, this.orderBookCount)
-        //bids = sorted(bids, key=lambda x: x['rate'],  reverse=True)
-        
-
-        newDepths = {'bids': bids, 'asks': asks }
-
-        const depth = this.ortak.depths.find(e=>{
-            if(e.tradePairId == data.TradePairId){
-                e.depths = newDepths
-                return true
-            }
-        })
-
-        const ratem = yeniMix.find(e=> e['rate'] == data['Rate'])
-        const indexim = data['Type'] == 1 ? asks.findIndex(e=> e['rate'] == data['Rate']) :  bids.findIndex(e=> e['rate'] == data['Rate'])
-
-        if(callback && !this.ortak.wsDataProcessing && data.Action == 0 && indexim == 0 && ratem){// #and steamBasla:
-            const coin = depth.market.split('/')[0]
-            callback(coin)
-        }
-
-        
-
-        if(data.TradePairId == 1010){
-            var logSell = asks.map(e=> e.rate.toFixed(8)).join('\n')
-            var logBids = bids.map(e=> e.rate.toFixed(8)).join('\n')
-            console.log('------\n'+logBids+'\n------')
-            console.log('------\n'+logSell+'\n------')
-        }
-    }
-    
-    OrderEkle(data, orderBooks){
-        //rateExist = list(filter(lambda x: x['rate'] == data['Rate'],orderBooks))
-        let rateExist = orderBooks.find(e=> e['rate'] == data['Rate'])
-        if (rateExist){
-            rateExist['amount'] = rateExist['amount'] + data['Amount']
-            rateExist['amount'] = Number(rateExist['amount'].toFixed(8))
-            orderBooks = orderBooks.filter(e=> e['rate'] != data['Rate']) // eski datayı orderbookstan çıkarıyoruz güncel halini eklicez
-            orderBooks.push(rateExist)
-        }else{
-            const typem = data['Type'] == 1 ? 'asks' : 'bids'
-            orderBooks.push({'rate': data['Rate'], 'amount': data['Amount'], 'type': typem })
-        }
-
-        return orderBooks
-    }
-
-    OrderSil(data, orderBooks){
-        if(orderBooks.length == 0) return orderBooks
-        const onceLen = orderBooks.length
-        //let rateExist = list(filter(lambda x: x['rate'] == data['Rate'],orderBooks))
-        let rateExist = orderBooks.find(e=> e['rate'] == data['Rate'])
-        if (!rateExist) return orderBooks
-
-        const onceAmount = rateExist['amount']
-        rateExist['amount'] = rateExist['amount'] - data['Amount']
-        rateExist['amount'] = Number(rateExist['amount'].toFixed(8))
-        if (rateExist['amount'] > 0){
-            orderBooks = orderBooks.filter(e=> e['rate'] != data['Rate'])
-            orderBooks.push(rateExist)
-        }else{
-            orderBooks = orderBooks.filter(e=> e['rate'] != data['Rate'])
-
-            const sonraLen = orderBooks.length
-            if (onceLen == sonraLen && onceAmount == data['Amount'])
-                print('huhu')
-        }
-
-        return orderBooks
-    }
-
     async WsBaslat(callback){
-        /*
+        
         this.WsZamanlayici(callback)
-        if(this.ortak.wsDataProcessing && this.ortak.ws){
-            console.log('###############################################################    WS ZATEN AÇIK   ############################################################### ')
-            this.ortak.ws.close()
-        }
-        */
         console.log('WS Başlıyor');
         await this.PrepareDbAndGetUygunMarkets()
         //this.ortak.depths = this.ortak.depths.filter(e=> [101].includes(e.tradePairId))
@@ -174,8 +63,21 @@ class WsDepth {
         console.log('OrderBooks atama işlemi bitti. Tarih: '+ new Date());   
     }
 
+    WsZamanlayici(callback){
+        setTimeout(() => {
+            for (const ws of this.wsler) {
+                ws.close()
+            }
+            this.ortak.wsDataProcessing = true
+            this.ortak.depths = []
+            this.subSayac = 0
+            this.WsBaslat(callback)
+        }, 1000 * 60 * this.ortak.wsZamanlayici) // salisel * saniye * dk
+    }
+
     SingleWs(tradePairId){
         const ws = new WebSocket(this.wsUrl);
+        ws.tradePairId = tradePairId
         ws.onmessage = (evt) => {
             var data = JSON.parse(evt.data);
             //console.log(tradePairId, data)
@@ -192,14 +94,12 @@ class WsDepth {
         }
 
         ws.onerror = (err) => console.log(err)
-        ws.onclose= () => {
-            console.log(tradePairId+' WS KAPANDI Yeniden bağlanıyor...' )
-            this.SingleWs(tradePairId)
-        }
-        ws.onopen = async () =>{
+        ws.onclose= () => console.log(tradePairId+' WS KAPANDI')
+        ws.onopen = () =>{
             const orderBookMessage = '{ "type": "join_channel", "market_id": "'+tradePairId+'", "ws_auth_token":"" }'
             ws.send(orderBookMessage)            
         }
+        this.wsler.push(ws)
     }
 
     async DbOrderbookDoldur(depth){
@@ -219,16 +119,6 @@ class WsDepth {
             this.DbOrderbookDoldur(depth)
         })
         
-    }
-
-    WsZamanlayici(callback){
-        setTimeout(() => {
-            this.ortak.ws.close()
-            this.ortak.wsDataProcessing = true
-            this.ortak.depths = []
-            this.subSayac = 0
-            this.WsBaslat(callback)
-        }, 1000 * 60 * this.ortak.wsZamanlayici) // salisel * saniye * dk
     }
 
     /////////////////////////////////////////////////////////
