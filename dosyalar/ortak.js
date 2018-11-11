@@ -3,7 +3,7 @@ const rp = require('request-promise')
 const MhtCcxt = require('../dll/mhtCcxt')
 const WsDepth = require('./ws-depth')
 
-const mongoUrl = "mongodb://144.202.125.69:1453/";
+const mongoUrl = "mongodb://95.179.169.27:1453/";
 
 class Ortak {
     async LoadVeriables(){
@@ -18,7 +18,7 @@ class Ortak {
         this.volumeLimtis = { "BTC": 0.5, "ETH": 10, "LTC": 50, "DOGE": 1100, "BNB":250, "USD":3250, "USDT":3250 }
         const connection = await mongodb.MongoClient.connect(mongoUrl, { useNewUrlParser: true });
         const cnn = connection.db('cry')
-        this.depths = [] //cnn.collection('ws-depths')
+        this.depths = cnn.collection('ws-depths')
         this.fbBalances = cnn.collection('balances')
         this.history = cnn.collection('history')
         this.mailData = cnn.collection('mailData')

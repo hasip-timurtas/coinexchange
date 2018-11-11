@@ -47,7 +47,10 @@ class WsDepth {
             */
         })
 
-        this.ortak.depths = umFilter.map(x=> ({ tradePairId: x['TradePairId'], market: x['Label']}))
+        const umMap = umFilter.map(x=> ({ tradePairId: x['TradePairId'], market: x['Label']}))
+
+        await this.ortak.depths.deleteMany({})
+        await this.ortak.depths.insertMany(umMap)        
     }
 
     async WsBaslat(callback){
@@ -56,9 +59,10 @@ class WsDepth {
         console.log('WS Başlıyor');
         await this.PrepareDbAndGetUygunMarkets()
         //this.ortak.depths = this.ortak.depths.filter(e=> [101].includes(e.tradePairId))
-        const leng = this.ortak.depths.length
+        const allDepthds = await this.ortak.depths.find().toArray()
+        const leng = allDepthds.length
         for(var i=0; i < leng; i++){
-            await this.DbOrderbookDoldur(this.ortak.depths[i], callback)
+            await this.DbOrderbookDoldur(allDepthds[i], callback)
             this.subSayac = this.subSayac + 1
             console.log(this.subSayac + ' market eklendi. Tolam market: '+ leng)
         }
@@ -73,7 +77,7 @@ class WsDepth {
             }
             this.wsler = []
             this.ortak.wsDataProcessing = true
-            this.ortak.depths = []
+            //this.ortak.depths = []
             this.subSayac = 0
             this.WsBaslat(callback)
         }, 1000 * 60 * this.ortak.wsZamanlayici) // salisel * saniye * dk
@@ -113,7 +117,8 @@ class WsDepth {
             bids = bids.slice(0, this.orderBookCount) // ilk 5 kayıt.
             let asks = market.asks.map(e=> ({ rate:e[0], amount:e[1], type:'asks'}))
             asks = asks.splice(0, this.orderBookCount) // ilk 5 kayıt
-            this.ortak.depths.find(e=> e.market == depth.market).depths = { bids, asks}
+            this.ortak.depths.updateOne({'tradePairId': depth.tradePairId}, {'$set': {'depths': { bids, asks}}})
+            //this.ortak.depths.find(e=> e.market == depth.market).depths = { bids, asks}
             this.SingleWs(depth.tradePairId, callback)
         }).catch(async (e)=>{
             if(e.message.includes('per second')){
@@ -128,7 +133,8 @@ class WsDepth {
     /////////////////////////////////////////////////////////
     
     async updateSellOrders (Direction, Rate, Amount, Type, tradePairId, callback){
-        let newDepth = this.ortak.depths.find(e=> e.tradePairId == tradePairId)
+
+        let newDepth = await this.ortak.depths.findOne({ 'tradePairId': tradePairId }) //this.ortak.depths.find(e=> e.tradePairId == tradePairId)
         let arr = newDepth.depths.asks
         var found = 0
         const removeSellOrder = (Rate) => {
@@ -184,12 +190,14 @@ class WsDepth {
 
         newDepth.depths.asks = arr
 
+        await this.ortak.depths.updateOne({'tradePairId': tradePairId}, {'$set': {'depths': newDepth.depths}})
+        /*
         this.ortak.depths.find(e=>{
             if(e.tradePairId == tradePairId){
                 e.depths = newDepth.depths
                 return true
             }
-        })
+        })*/
 
         this.LogYaz(tradePairId,newDepth.depths)
 
@@ -202,7 +210,7 @@ class WsDepth {
        
     
     async updateBuyOrders(Direction, Rate, Amount, Type, tradePairId, callback){
-        let newDepth = this.ortak.depths.find(e=> e.tradePairId == tradePairId)
+        let newDepth = await this.ortak.depths.findOne({ 'tradePairId': tradePairId }) //this.ortak.depths.find(e=> e.tradePairId == tradePairId)
         let arr = newDepth.depths.bids
         var found = 0
         const removeBuyOrder = (Rate) => {
@@ -255,13 +263,15 @@ class WsDepth {
         }
 
         newDepth.depths.bids = arr
+        await this.ortak.depths.updateOne({'tradePairId': tradePairId}, {'$set': {'depths': newDepth.depths}})
+        /*
         this.ortak.depths.find(e=>{
             if(e.tradePairId == tradePairId){
                 e.depths = newDepth.depths
                 return true
             }
         })
-
+*/
         this.LogYaz(tradePairId,newDepth.depths)
 
         const indexim = arr.findIndex(e=> e.rate == Rate)
