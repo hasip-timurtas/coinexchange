@@ -73,7 +73,7 @@ class WsDepth {
     WsZamanlayici(callback){
         setTimeout(() => {
             for (const ws of this.wsler) {
-                ws.close()
+                ws.terminate()
             }
             this.wsler = []
             this.ortak.wsDataProcessing = true
@@ -102,7 +102,10 @@ class WsDepth {
         }
 
         ws.onerror = (err) => console.log(err)
-        ws.onclose= () => console.log(tradePairId+' WS KAPANDI')
+        ws.onclose= () => {
+            console.log(tradePairId+' WS KAPANDI Tekrardan bağlanıyor.')
+            this.SingleWs(tradePairId, callback)
+        }
         ws.onopen = () =>{
             const orderBookMessage = '{ "type": "join_channel", "market_id": "'+tradePairId+'", "ws_auth_token":"" }'
             ws.send(orderBookMessage)            

@@ -246,9 +246,9 @@ class Ortak {
     GetOrderBooks(marketler, all = false){
         let orderBooks
         if(all) { // all true ise hepsini döndürür.
-            orderBooks = this.depths //.find().toArray()
+            orderBooks = this.depths.find().toArray()
         }else{
-            orderBooks = this.depths.filter(e=> marketler.includes(e.market))//.find( { 'market': { '$in': marketler } } ).toArray()
+            orderBooks = this.depths.find( { 'market': { '$in': marketler } } ).toArray()
         }
         
         orderBooks = orderBooks.map(e=> {
@@ -336,7 +336,7 @@ class Ortak {
     }
 
     async GetTickers(marketler){
-        let tickers = await this.depths.filter(e=> marketler.includes(e.market)) //.find( { 'market': { '$in': marketler } } ).toArray()
+        let tickers = await this.depths.find( { 'market': { '$in': marketler } } ).toArray()
         tickers = tickers.map(e=> {
             e.ticker.market = e.market
             return e.ticker
@@ -346,7 +346,7 @@ class Ortak {
 
     async GetOrderBook(marketName){
         
-        let marketOrders = await this.depths.find(e=> e.market == marketName)//.findOne({ market: marketName } )
+        let marketOrders = await this.depths.findOne({ market: marketName } )
         if(!marketOrders){
             return false
         }
