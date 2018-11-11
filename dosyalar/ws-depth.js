@@ -191,7 +191,7 @@ class WsDepth {
             }
         })
 
-        this.LogYaz(tradePairId,newDepth)
+        this.LogYaz(tradePairId,newDepth.depths)
 
         const indexim = arr.findIndex(e=> e.rate == Rate)
         if(callback && !this.ortak.wsDataProcessing && indexim == 0 && Direction == 'add' ) {
@@ -262,7 +262,7 @@ class WsDepth {
             }
         })
 
-        this.LogYaz(tradePairId,newDepth)
+        this.LogYaz(tradePairId,newDepth.depths)
 
         const indexim = arr.findIndex(e=> e.rate == Rate)
         if(callback && !this.ortak.wsDataProcessing && indexim == 0 && Direction == 'add' ) {
