@@ -40,8 +40,11 @@ class WsDepth {
             const markets = [coin + '/BTC', coin + '/ETH', coin + '/DOGE']
             if(mainMarkets.includes(x.Label)) return true
             if(yasakliMarkets.includes(baseCoin)) return false
+            return true
+            /*
             const butunMarketlerdeVar = x.Volume > 0.01 // allMarkets.includes(markets[0]) && allMarkets.includes(markets[1]) && allMarkets.includes(markets[2]) && 
             return butunMarketlerdeVar
+            */
         })
 
         this.ortak.depths = umFilter.map(x=> ({ tradePairId: x['TradePairId'], market: x['Label']}))
