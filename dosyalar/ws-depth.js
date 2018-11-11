@@ -15,6 +15,7 @@ class WsDepth {
         this.subSayac = 0
         this.wsUrl = 'wss://ws.coinexchange3.com:3001/marketdata'
         this.wsler = []
+        this.anaSayac = 0
     }
 
     async GetMarkets(){
@@ -54,7 +55,7 @@ class WsDepth {
     }
 
     async WsBaslat(callback){
-        
+        this.anaSayac++
         this.WsZamanlayici(callback)
         console.log('WS Başlıyor');
         await this.PrepareDbAndGetUygunMarkets()
@@ -67,7 +68,8 @@ class WsDepth {
             console.log(this.subSayac + ' market eklendi. Tolam market: '+ leng)
         }
         this.ortak.wsDataProcessing = false
-        console.log('OrderBooks atama işlemi bitti. Tarih: '+ new Date());   
+        console.log('OrderBooks atama işlemi bitti. Tarih: '+ new Date())
+        console.log('Ana Sayac: ' + this.anaSayac);
     }
 
     WsZamanlayici(callback){
