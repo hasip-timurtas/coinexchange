@@ -2,7 +2,7 @@ const mongodb = require('mongodb')
 const rp = require('request-promise')
 const MhtCcxt = require('../dll/mhtCcxt')
 
-const mongoUrl = "mongodb://95.179.169.27:1453/";
+const mongoUrl = "mongodb://144.202.125.69:1453/";
 
 class Ortak {
     async LoadVeriables(){
@@ -31,7 +31,7 @@ class Ortak {
         this.marketTickers = await this.ccx.GetMarkets().catch(e=> console.log(e))
         this.islemdekiCoinler = []
         this.allData = []
-        this.allActiveCoins = []//this.marketsInfos && this.marketsInfos.filter(e=> e.active &&  e.quote == 'BTC').map(e=>e.baseId.toUpperCase()).filter(e=> !this.mainMarkets.includes(e))
+        this.allActiveCoins = this.marketsInfos && this.marketsInfos.filter(e=> e.active &&  e.quote == 'BTC').map(e=>e.baseId.toUpperCase()).filter(e=> !this.mainMarkets.includes(e))
         this.testAmount = 100
         this.wsDataProcessing = true // ilk başta true diyoruz. ilk çalıştığında beklesin diye.
         this.ws
@@ -243,12 +243,12 @@ class Ortak {
         */
     }
 
-    GetOrderBooks(marketler, all = false){
+    async GetOrderBooks(marketler, all = false){
         let orderBooks
         if(all) { // all true ise hepsini döndürür.
-            orderBooks = this.depths.find().toArray()
+            orderBooks = await this.depths.find().toArray()
         }else{
-            orderBooks = this.depths.find( { 'market': { '$in': marketler } } ).toArray()
+            orderBooks = await this.depths.find( { 'market': { '$in': marketler } } ).toArray()
         }
         
         orderBooks = orderBooks.map(e=> {

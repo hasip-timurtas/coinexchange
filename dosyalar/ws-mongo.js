@@ -18,6 +18,11 @@ class WsMongo {
         this.sonCoin = '1'
     }
 
+    TekliBasla(){
+        const allCoins = this.ortak.allActiveCoins
+        this.YesYeniFunk('ARB')
+    }
+
     cryWsBasla(){
         this.ortak.wsDepth.WsBaslat(coin=> this.SteamHandler(coin))
     }
@@ -281,7 +286,7 @@ class WsMongo {
 
 let sayac = 0
 let cryBuy
-
+/*
 async function Basla(){
     sayac++
     cryBuy = new WsMongo()
@@ -293,6 +298,13 @@ async function Basla(){
         await cryBuy.ortak.sleep(1)
     }
     console.log('Sayaç Çalışma süresi: ' + sayac)
+}
+*/
+
+async function Basla(){
+    cryBuy = new WsMongo()
+    await cryBuy.LoadVeriables()
+    cryBuy.TekliBasla() 
 }
 
 Basla()
