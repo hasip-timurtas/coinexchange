@@ -55,7 +55,7 @@ class WsDepth {
         //this.ortak.depths = this.ortak.depths.filter(e=> [101].includes(e.tradePairId))
         const leng = this.ortak.depths.length
         for(var i=0; i < leng; i++){
-            await this.DbOrderbookDoldur(this.ortak.depths[i])
+            await this.DbOrderbookDoldur(this.ortak.depths[i], callback)
             this.subSayac = this.subSayac + 1
             console.log(this.subSayac + ' market eklendi. Tolam market: '+ leng)
         }
@@ -68,6 +68,7 @@ class WsDepth {
             for (const ws of this.wsler) {
                 ws.close()
             }
+            this.wsler = []
             this.ortak.wsDataProcessing = true
             this.ortak.depths = []
             this.subSayac = 0
@@ -75,7 +76,7 @@ class WsDepth {
         }, 1000 * 60 * this.ortak.wsZamanlayici) // salisel * saniye * dk
     }
 
-    SingleWs(tradePairId){
+    SingleWs(tradePairId, callback){
         const ws = new WebSocket(this.wsUrl);
         ws.tradePairId = tradePairId
         ws.onmessage = (evt) => {
@@ -85,11 +86,11 @@ class WsDepth {
             
             // Sell Orders Update
             if(data.type == "update_sell_order"){
-                this.updateSellOrders(data.direction, data.price, data.quantity, 'asks', tradePairId).catch(e=> console.log(e))
+                this.updateSellOrders(data.direction, data.price, data.quantity, 'asks', tradePairId, callback).catch(e=> console.log(e))
             }
             // Buy Order Update
             if(data.type == "update_buy_order"){
-                this.updateBuyOrders(data.direction, data.price, data.quantity, 'bids', tradePairId).catch(e=> console.log(e))
+                this.updateBuyOrders(data.direction, data.price, data.quantity, 'bids', tradePairId, callback).catch(e=> console.log(e))
             }
         }
 
@@ -102,7 +103,7 @@ class WsDepth {
         this.wsler.push(ws)
     }
 
-    async DbOrderbookDoldur(depth){
+    async DbOrderbookDoldur(depth, callback){
         await this.ortak.ccx.exchange.fetchOrderBook(depth.market)
         .then(market=>{
             let bids = market.bids.map(e=> ({ rate:e[0], amount:e[1], type:'bids'}))
@@ -110,22 +111,22 @@ class WsDepth {
             let asks = market.asks.map(e=> ({ rate:e[0], amount:e[1], type:'asks'}))
             asks = asks.splice(0, this.orderBookCount) // ilk 5 kayıt
             this.ortak.depths.find(e=> e.market == depth.market).depths = { bids, asks}
-            this.SingleWs(depth.tradePairId)
+            this.SingleWs(depth.tradePairId, callback)
         }).catch(async (e)=>{
             if(e.message.includes('per second')){
                 await this.ortak.sleep(11)
             }
             console.log('DbOrderbookDoldurBesMarkets Hata verdi tekrar başlıcak. HATA: ',e)
-            this.DbOrderbookDoldur(depth)
+            this.DbOrderbookDoldur(depth, callback)
         })
         
     }
 
     /////////////////////////////////////////////////////////
     
-    async updateSellOrders (Direction, Rate, Amount, Type, tradePairId){
-        let newDepths = this.ortak.depths.find(e=> e.tradePairId == tradePairId).depths
-        let arr = newDepths.asks
+    async updateSellOrders (Direction, Rate, Amount, Type, tradePairId, callback){
+        let newDepth = this.ortak.depths.find(e=> e.tradePairId == tradePairId)
+        let arr = newDepth.depths.asks
         var found = 0
         const removeSellOrder = (Rate) => {
             arr = arr.filter(e=> e.rate != Rate)
@@ -178,22 +179,28 @@ class WsDepth {
             }
         }
 
-        newDepths.asks = arr
+        newDepth.depths.asks = arr
 
         this.ortak.depths.find(e=>{
             if(e.tradePairId == tradePairId){
-                e.depths = newDepths
+                e.depths = newDepth.depths
                 return true
             }
         })
 
-        this.LogYaz(tradePairId,newDepths)
+        this.LogYaz(tradePairId,newDepth)
+
+        const indexim = arr.findIndex(e=> e.rate == Rate)
+        if(callback && !this.ortak.wsDataProcessing && indexim == 0 && Direction == 'add' ) {
+            const coin = newDepth.market.split('/')[0]
+            callback(coin)
+        }
     }
        
     
-    async updateBuyOrders(Direction, Rate, Amount, Type, tradePairId){
-        let newDepths = this.ortak.depths.find(e=> e.tradePairId == tradePairId).depths
-        let arr = newDepths.bids
+    async updateBuyOrders(Direction, Rate, Amount, Type, tradePairId, callback){
+        let newDepth = this.ortak.depths.find(e=> e.tradePairId == tradePairId)
+        let arr = newDepth.depths.bids
         var found = 0
         const removeBuyOrder = (Rate) => {
             arr = arr.filter(e=> e.rate != Rate)
@@ -243,16 +250,22 @@ class WsDepth {
                 sortBuyOrders()
             }
         }
-        
-        newDepths.bids = arr
+
+        newDepth.depths.bids = arr
         this.ortak.depths.find(e=>{
             if(e.tradePairId == tradePairId){
-                e.depths = newDepths
+                e.depths = newDepth.depths
                 return true
             }
         })
 
-        this.LogYaz(tradePairId,newDepths)
+        this.LogYaz(tradePairId,newDepth)
+
+        const indexim = arr.findIndex(e=> e.rate == Rate)
+        if(callback && !this.ortak.wsDataProcessing && indexim == 0 && Direction == 'add' ) {
+            const coin = newDepth.market.split('/')[0]
+            callback(coin)
+        }
     }
 
     LogYaz(tradePairId, depths){

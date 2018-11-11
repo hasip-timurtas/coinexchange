@@ -23,6 +23,7 @@ class WsMongo {
     }
 
     SteamHandler(coin){
+        return
         if(this.islemdekiler.includes(coin) || this.ortak.mainMarkets.includes(coin) || this.ortak.wsDataProcessing ) return
         //this.FiyatFarkKontrolYeni(coin, 'BTC', 'ETH', 'DOGE')
         this.YesYeniFunk(coin)
@@ -32,7 +33,7 @@ class WsMongo {
         this.islemdekiler.push(coin)
         const result = this.GetMarketList(coin)
         let allMarkets = await this.ortak.GetOrderBooks(result.marketList)
-        if(allMarkets.length != 6) return this.IslemdekilerCikar(coin)
+        if(allMarkets.length < 4) return this.IslemdekilerCikar(coin)
 
         const data = this.ortak.OrderBooksDataKontrol(allMarkets)
         if(!data){
@@ -87,7 +88,7 @@ class WsMongo {
             btcMarket:    { name: d.btcMarketName,    price: rob.btcOrderBook.price,    total: rob.btcOrderBook.total }
         }
 
-        await this.BuySellBasla(uygunMarket)         
+        //await this.BuySellBasla(uygunMarket)         
     }
 
     async GetOrderBookGroup(d, orderBooks){
