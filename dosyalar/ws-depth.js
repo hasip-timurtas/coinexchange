@@ -11,7 +11,7 @@ class WsDepth {
         this.balances = []
         this.oncekiCoin = null
         this.depths = []
-        this.orderBookCount = 10
+        this.orderBookCount = 20
         this.subSayac = 0
         this.wsUrl = 'wss://ws.coinexchange3.com:3001/marketdata'
     }
@@ -183,28 +183,19 @@ class WsDepth {
             
             // Sell Orders Update
             if(data.type == "update_sell_order"){
-                params.Type = 1 // 0 buy - 1 Sell
-                params.Rate = Number(data.price)
-                params.TradePairId = tradePairId
-                params.Amount = Number(data.quantity)
-                params.Action = data.direction == 'add' ? 0 : 1 // 0 add - 1 sil.
-                this.OrderBookInsert(params, null)
-                //this.updateSellOrders(data.direction, data.price, data.quantity, data.total);
+                this.updateSellOrders(data.direction, data.price, data.quantity, 'asks', tradePairId).catch(e=> console.log(e))
             }
             // Buy Order Update
             if(data.type == "update_buy_order"){
-                params.Type = 0 // 0 buy - 1 Sell
-                params.Rate = Number(data.price)
-                params.TradePairId = tradePairId
-                params.Amount = Number(data.quantity)
-                params.Action = data.direction == 'add' ? 0 : 1 // 0 add - 1 sil.
-                this.OrderBookInsert(params, null)
-                ///this.updateBuyOrders(data.direction, data.price, data.quantity, data.total);
+                this.updateBuyOrders(data.direction, data.price, data.quantity, 'bids', tradePairId).catch(e=> console.log(e))
             }
         }
 
         ws.onerror = (err) => console.log(err)
-        ws.onclose= () => console.log(tradePairId+' WS KAPANDI')// bağlantı koptuğunda 2 saniye sonra birdaha bağlan
+        ws.onclose= () => {
+            console.log(tradePairId+' WS KAPANDI Yeniden bağlanıyor...' )
+            this.SingleWs(tradePairId)
+        }
         ws.onopen = async () =>{
             const orderBookMessage = '{ "type": "join_channel", "market_id": "'+tradePairId+'", "ws_auth_token":"" }'
             ws.send(orderBookMessage)            
@@ -239,6 +230,150 @@ class WsDepth {
             this.WsBaslat(callback)
         }, 1000 * 60 * this.ortak.wsZamanlayici) // salisel * saniye * dk
     }
+
+    /////////////////////////////////////////////////////////
+    
+    async updateSellOrders (Direction, Rate, Amount, Type, tradePairId){
+        let newDepths = this.ortak.depths.find(e=> e.tradePairId == tradePairId).depths
+        let arr = newDepths.asks
+        var found = 0
+        const removeSellOrder = (Rate) => {
+            arr = arr.filter(e=> e.rate != Rate)
+        }
+        
+        const addsellOrder = (rate, amount, total) => {
+            rate = Number(rate).toFixed(8)
+            amount = Number(amount).toFixed(8)
+            total = Number(total).toFixed(8)
+            arr.push({rate: rate, amount: amount, total: total, userorder: 0})
+        }
+        
+        const sortSellOrders = () => {
+            arr.sort((left, right) => left.rate == right.rate ? 0 : (left.rate < right.rate ? -1 : 1) )
+        }
+
+        for (let i = 0; i < arr.length; i++) {
+            if(arr[i].rate == Rate){
+                found = 1
+                var new_entry = {}
+                if(Direction == "remove"){
+                    if(+arr[i].amount > +Amount){
+                        new_entry.rate = Rate
+                        new_entry.amount = +arr[i].amount - +Amount
+                        new_entry.total = Rate * new_entry.amount
+                        removeSellOrder(Rate)
+                        addsellOrder(new_entry.rate, new_entry.amount, new_entry.total)
+                        sortSellOrders()
+                    }  else if(+arr[i].amount == +Amount) {
+                        removeSellOrder(Rate)
+                    }
+                } else if(Direction == "add"){
+                    new_entry.rate = Rate
+                    new_entry.amount = +arr[i].amount + +Amount
+                    new_entry.total = Rate * new_entry.amount
+                    removeSellOrder(Rate)
+                    addsellOrder(new_entry.rate, new_entry.amount, new_entry.total)
+                    sortSellOrders()
+                }
+                i = arr.length
+                
+            } 
+        }
+        
+        if(found == 0){
+            if(Direction == "add"){
+                var new_total = +Rate * +Amount
+                addsellOrder(Rate, Amount, new_total)
+                sortSellOrders()
+            }
+        }
+
+        newDepths.asks = arr
+
+        this.ortak.depths.find(e=>{
+            if(e.tradePairId == tradePairId){
+                e.depths = newDepths
+                return true
+            }
+        })
+
+        this.LogYaz(tradePairId,newDepths)
+    }
+       
+    
+    async updateBuyOrders(Direction, Rate, Amount, Type, tradePairId){
+        let newDepths = this.ortak.depths.find(e=> e.tradePairId == tradePairId).depths
+        let arr = newDepths.bids
+        var found = 0
+        const removeBuyOrder = (Rate) => {
+            arr = arr.filter(e=> e.rate != Rate)
+        }
+        
+        const addBuyOrder = (rate, amount, total) => {
+            rate = Number(rate).toFixed(8)
+            amount = Number(amount).toFixed(8)
+            total = Number(total).toFixed(8)
+            arr.push({rate: rate, amount: amount, total: total, userorder: 0})
+        }
+        
+        const sortBuyOrders = () => {
+            arr.sort((left, right) => left.rate == right.rate ? 0 : (left.rate > right.rate ? -1 : 1) )
+        }
+
+        for (let i = 0; i < arr.length; i++) {
+            if(arr[i].rate == Rate){
+                found = 1
+                var new_entry = {}
+                if(Direction == "remove"){
+                    if(+arr[i].amount > +Amount){
+                        new_entry.rate = Rate
+                        new_entry.amount = +arr[i].amount - +Amount
+                        new_entry.total = Rate * new_entry.amount
+                        removeBuyOrder(Rate)
+                        addBuyOrder(new_entry.rate, new_entry.amount, new_entry.total)
+                        sortBuyOrders()
+                    }  else if(+arr[i].amount == +Amount) {
+                        removeBuyOrder(Rate)
+                    }
+                } else if(Direction == "add"){
+                    new_entry.rate = Rate
+                    new_entry.amount = +arr[i].amount + +Amount
+                    new_entry.total = Rate * new_entry.amount
+                    removeBuyOrder(Rate)
+                    addBuyOrder(new_entry.rate, new_entry.amount, new_entry.total)
+                    sortBuyOrders()
+                }
+                i = arr.length
+            } 
+        }
+        if(found == 0){
+            if(Direction == "add"){
+                var new_total = +Rate * +Amount
+                addBuyOrder(Rate, Amount, new_total)
+                sortBuyOrders()
+            }
+        }
+        
+        newDepths.bids = arr
+        this.ortak.depths.find(e=>{
+            if(e.tradePairId == tradePairId){
+                e.depths = newDepths
+                return true
+            }
+        })
+
+        this.LogYaz(tradePairId,newDepths)
+    }
+
+    LogYaz(tradePairId, depths){
+        if(tradePairId == 1010){
+            var logSell = depths.asks.map(e=> Number(e.rate).toFixed(8)).join('\n')
+            var logBids = depths.bids.map(e=> Number(e.rate).toFixed(8)).join('\n')
+            console.log('------\n'+logBids+'\n------')
+            console.log('------\n'+logSell+'\n------')
+        }
+    }
+
 }
 
 module.exports = WsDepth
