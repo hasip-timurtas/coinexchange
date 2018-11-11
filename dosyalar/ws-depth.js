@@ -1,13 +1,13 @@
-const rp = require('request-promise')
 const WebSocket = require('ws');
+const Ortak = require('./ortak')
 
 class WsDepth {
     async LoadVeriables(ortak) {
         this.islemKati = 10
         this.minFark = 1
         this.islemdekiCoinler = []
-        this.ortak = ortak
-        //setInterval(async ()=> await this.BalanceGuncelle(), 2000 )
+        this.ortak = new Ortak()
+        await this.ortak.LoadVeriables()
         this.balances = []
         this.oncekiCoin = null
         this.depths = []
@@ -197,7 +197,7 @@ class WsDepth {
                 e.depths = newDepth.depths
                 return true
             }
-        })*/
+        })
 
         this.LogYaz(tradePairId,newDepth.depths)
 
@@ -206,6 +206,7 @@ class WsDepth {
             const coin = newDepth.market.split('/')[0]
             callback(coin)
         }
+        */
     }
        
     
@@ -271,7 +272,7 @@ class WsDepth {
                 return true
             }
         })
-*/
+
         this.LogYaz(tradePairId,newDepth.depths)
 
         const indexim = arr.findIndex(e=> e.rate == Rate)
@@ -279,6 +280,7 @@ class WsDepth {
             const coin = newDepth.market.split('/')[0]
             callback(coin)
         }
+        */
     }
 
     LogYaz(tradePairId, depths){
@@ -292,4 +294,10 @@ class WsDepth {
 
 }
 
-module.exports = WsDepth
+async function Basla(){
+    var wsDepth = new WsDepth()
+    await wsDepth.LoadVeriables()
+    wsDepth.WsBaslat()
+}
+
+Basla()

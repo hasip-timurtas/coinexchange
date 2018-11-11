@@ -1,7 +1,6 @@
 const mongodb = require('mongodb')
 const rp = require('request-promise')
 const MhtCcxt = require('../dll/mhtCcxt')
-const WsDepth = require('./ws-depth')
 
 const mongoUrl = "mongodb://95.179.169.27:1453/";
 
@@ -34,8 +33,6 @@ class Ortak {
         this.allData = []
         this.allActiveCoins = []//this.marketsInfos && this.marketsInfos.filter(e=> e.active &&  e.quote == 'BTC').map(e=>e.baseId.toUpperCase()).filter(e=> !this.mainMarkets.includes(e))
         this.testAmount = 100
-        this.wsDepth = new WsDepth()
-        await this.wsDepth.LoadVeriables(this)
         this.wsDataProcessing = true // ilk başta true diyoruz. ilk çalıştığında beklesin diye.
         this.ws
         this.wsZamanlayici = 30 // DAKİKA
